@@ -14,18 +14,22 @@ export async function POST(req: NextRequest) {
 
     // 1. If Supabase Auth is enabled, try authenticating via Supabase
     if (supabase) {
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password: String(password),
-      });
-
-      if (!authError && authData.user) {
-        const token = signToken({ email: authData.user.email || cleanEmail, role: 'admin' });
-        await setAdminSessionCookie(token);
-        return NextResponse.json({
-          success: true,
-          admin: { email: authData.user.email, role: 'admin' },
+      try {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: String(password),
         });
+
+        if (!authError && authData?.user) {
+          const token = signToken({ email: authData.user.email || cleanEmail, role: 'admin' });
+          await setAdminSessionCookie(token);
+          return NextResponse.json({
+            success: true,
+            admin: { email: authData.user.email, role: 'admin' },
+          });
+        }
+      } catch (sbAuthErr) {
+        console.warn('Supabase auth attempt skipped, falling back to local credentials:', sbAuthErr);
       }
     }
 

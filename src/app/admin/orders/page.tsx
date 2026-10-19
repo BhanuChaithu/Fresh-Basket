@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ClipboardList,
   Search,
@@ -15,6 +17,8 @@ import {
   AlertCircle,
   Printer,
   ChevronDown,
+  RefreshCw,
+  Lock,
 } from 'lucide-react';
 import { Order, OrderStatus, PaymentStatus } from '@/lib/types';
 
@@ -30,23 +34,39 @@ const STATUS_LIST: OrderStatus[] = [
 ];
 
 export default function AdminOrdersPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [search, setSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusUpdateMsg, setStatusUpdateMsg] = useState<string | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const url = statusFilter === 'All' ? '/api/orders' : `/api/orders?status=${encodeURIComponent(statusFilter)}`;
+      const url =
+        statusFilter === 'All'
+          ? '/api/orders'
+          : `/api/orders?status=${encodeURIComponent(statusFilter)}`;
       const res = await fetch(url);
+
+      if (res.status === 401) {
+        setAuthRequired(true);
+        setLoading(false);
+        router.push('/admin/login');
+        return;
+      }
+
       const data = await res.json();
       if (data.orders) {
+        setAuthRequired(false);
         setOrders(data.orders);
         if (selectedOrder) {
-          const updatedSelected = data.orders.find((o: Order) => o.id === selectedOrder.id);
+          const updatedSelected = data.orders.find(
+            (o: Order) => o.id === selectedOrder.id
+          );
           if (updatedSelected) setSelectedOrder(updatedSelected);
         }
       }
@@ -130,10 +150,35 @@ export default function AdminOrdersPage() {
           </p>
         </div>
 
-        <div className="text-xs font-bold text-gray-600 bg-white px-3.5 py-2 rounded-xl border border-gray-200">
-          Total: <strong className="text-[#218838]">{orders.length}</strong> orders
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchOrders}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 shadow-2xs transition cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-[#218838]' : ''}`} />
+            <span>Refresh</span>
+          </button>
+          <div className="text-xs font-bold text-gray-600 bg-white px-3.5 py-2 rounded-xl border border-gray-200">
+            Total: <strong className="text-[#218838]">{orders.length}</strong> orders
+          </div>
         </div>
       </div>
+
+      {authRequired && (
+        <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <Lock className="w-5 h-5 text-amber-600 shrink-0" />
+            <span>Admin session expired or not authenticated. Please log in to view and manage customer orders.</span>
+          </div>
+          <Link
+            href="/admin/login"
+            className="px-4 py-2 bg-[#218838] hover:bg-[#1a6f2d] text-white rounded-xl font-bold transition whitespace-nowrap"
+          >
+            Go to Admin Login
+          </Link>
+        </div>
+      )}
 
       {statusUpdateMsg && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-2 animate-in fade-in">
