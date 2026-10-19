@@ -84,11 +84,7 @@ function getInitialDb(): LocalDatabase {
   };
 }
 
-function loadLocalDb(): LocalDatabase {
-  if (memoryDb) {
-    return memoryDb;
-  }
-
+function loadLocalDb(forceFileRead = true): LocalDatabase {
   try {
     if (fs.existsSync(DB_FILE)) {
       const content = fs.readFileSync(DB_FILE, 'utf-8');
@@ -97,6 +93,10 @@ function loadLocalDb(): LocalDatabase {
     }
   } catch (err) {
     console.warn('Could not read from local db file, falling back to memory:', err);
+  }
+
+  if (memoryDb && !forceFileRead) {
+    return memoryDb;
   }
 
   const initial = getInitialDb();
@@ -175,17 +175,29 @@ export async function getProducts(options?: {
   return list;
 }
 
-export async function getProductById(id: string): Promise<Product | null> {
+export async function getProductById(idOrSlug: string): Promise<Product | null> {
+  const clean = decodeURIComponent(idOrSlug || '').trim();
+  if (!clean) return null;
+
   if (isSupabaseConfigured && supabaseAdmin) {
-    const { data, error } = await supabaseAdmin
+    const { data } = await supabaseAdmin
       .from('products')
       .select('*')
-      .eq('id', id)
-      .single();
-    if (!error && data) return data;
+      .or(`id.eq.${clean},slug.eq.${clean}`)
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
   }
   const db = loadLocalDb();
-  return db.products.find((p) => p.id === id) || null;
+  return (
+    db.products.find(
+      (p) =>
+        p.id === clean ||
+        p.slug === clean ||
+        p.slug?.toLowerCase() === clean.toLowerCase() ||
+        p.id?.toLowerCase() === clean.toLowerCase()
+    ) || null
+  );
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -491,17 +503,57 @@ export async function getOrderById(id: string): Promise<Order | null> {
 }
 
 export async function getOrderByLookupToken(token: string): Promise<Order | null> {
+  const cleanToken = decodeURIComponent(token || '').trim();
+  if (!cleanToken) return null;
+
   if (isSupabaseConfigured && supabaseAdmin) {
-    const { data, error } = await supabaseAdmin
+    const { data } = await supabaseAdmin
       .from('orders')
       .select('*')
-      .eq('lookup_token', token)
-      .single();
-    if (!error && data) return data;
+      .or(`lookup_token.eq.${cleanToken},order_number.eq.${cleanToken},id.eq.${cleanToken}`)
+      .limit(1)
+      .maybeSingle();
+    if (data) return data;
   }
 
-  const db = loadLocalDb();
-  return db.orders.find((o) => o.lookup_token === token) || null;
+  // Reload fresh from disk
+  let db = loadLocalDb(true);
+  const normalized = cleanToken.replace(/^#/, '').toLowerCase();
+
+  let matched = db.orders.find(
+    (o) =>
+      o.lookup_token === cleanToken ||
+      o.lookup_token?.toLowerCase() === normalized ||
+      o.order_number?.toLowerCase() === normalized ||
+      o.order_number?.replace(/^#/, '').toLowerCase() === normalized ||
+      o.id === cleanToken ||
+      o.id?.toLowerCase() === normalized
+  );
+  if (matched) return matched;
+
+  // Secondary match (alphanumeric stripped)
+  const cleanAlpha = cleanToken.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  if (cleanAlpha.length >= 3) {
+    matched = db.orders.find(
+      (o) =>
+        o.order_number?.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === cleanAlpha ||
+        o.lookup_token?.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === cleanAlpha ||
+        o.id?.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() === cleanAlpha
+    );
+    if (matched) return matched;
+  }
+
+  // Short retry in case write was just being flushed to disk
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  db = loadLocalDb(true);
+  matched = db.orders.find(
+    (o) =>
+      o.lookup_token === cleanToken ||
+      o.lookup_token?.toLowerCase() === normalized ||
+      o.order_number?.toLowerCase() === normalized ||
+      o.id === cleanToken
+  );
+  return matched || null;
 }
 
 export async function lookupOrder(orderNumber: string, phone: string): Promise<Order | null> {
@@ -573,20 +625,18 @@ export async function createOrder(payload: {
 
   // Check pincode serviceability & delivery charge
   const pinCheck = await checkPincode(payload.pincode);
-  let deliveryCharge = settings.standard_delivery_charge;
+  let deliveryCharge = settings.standard_delivery_charge || 0;
 
   if (pinCheck.area) {
-    deliveryCharge = pinCheck.area.delivery_charge;
-    if (recalculatedSubtotal < pinCheck.area.min_order_value) {
-      return {
-        order: null as unknown as Order,
-        error: `Minimum order value for ${pinCheck.area.area_name} is ₹${pinCheck.area.min_order_value}. Your current produce subtotal is ₹${recalculatedSubtotal}.`,
-      };
-    }
+    deliveryCharge = pinCheck.area.delivery_charge || 0;
   }
 
-  // Free delivery threshold check
-  if (recalculatedSubtotal >= settings.free_delivery_threshold) {
+  // Free delivery threshold check (0 means free delivery on all orders)
+  if (
+    settings.standard_delivery_charge === 0 ||
+    settings.free_delivery_threshold === 0 ||
+    recalculatedSubtotal >= settings.free_delivery_threshold
+  ) {
     deliveryCharge = 0;
   }
 

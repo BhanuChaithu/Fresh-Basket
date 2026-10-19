@@ -67,13 +67,14 @@ export default function CheckoutPage() {
     );
   }
 
-  const freeDeliveryThreshold = settings.free_delivery_threshold || 299;
-  const isFreeDelivery = subtotal >= freeDeliveryThreshold;
+  const freeDeliveryThreshold = settings.free_delivery_threshold ?? 0;
+  const standardDeliveryCharge = settings.standard_delivery_charge ?? 0;
+  const isFreeDelivery = freeDeliveryThreshold === 0 || subtotal >= freeDeliveryThreshold;
   const deliveryCharge = isFreeDelivery
     ? 0
     : selectedArea
-    ? selectedArea.delivery_charge
-    : settings.standard_delivery_charge || 35;
+    ? (selectedArea.delivery_charge ?? 0)
+    : standardDeliveryCharge;
   const totalAmount = subtotal + deliveryCharge;
 
   const handlePincodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,6 +141,13 @@ export default function CheckoutPage() {
       }
 
       // Order created successfully!
+      if (data.order) {
+        try {
+          sessionStorage.setItem('fb_last_order', JSON.stringify(data.order));
+          localStorage.setItem('fb_last_order', JSON.stringify(data.order));
+          localStorage.setItem('fb_last_token', data.lookup_token);
+        } catch {}
+      }
       clearCart();
       router.push(`/order-confirmation/${data.lookup_token}`);
     } catch {
@@ -398,36 +406,76 @@ export default function CheckoutPage() {
               </label>
             </div>
 
-            {/* If Manual UPI is chosen, display UPI details */}
+            {/* If Manual UPI is chosen, display PhonePe QR details */}
             {form.payment_method === 'Manual UPI' && (
-              <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 space-y-3 text-xs text-amber-900">
-                <div className="flex items-center gap-2 font-bold text-sm text-[#14532D]">
-                  <QrCode className="w-4 h-4 text-[#218838]" />
-                  <span>Fresh Basket Official UPI Details</span>
-                </div>
-                <div className="bg-white p-3 rounded-xl border border-amber-200 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">UPI ID / VPA:</span>
-                    <strong className="text-gray-900 select-all font-mono">{settings.upi_id}</strong>
+              <div className="p-5 bg-gradient-to-b from-purple-50/60 to-white rounded-2xl border-2 border-purple-200 space-y-4 text-xs text-gray-800 shadow-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-purple-100">
+                  <div className="flex items-center gap-2 font-black text-sm text-[#14532D]">
+                    <QrCode className="w-5 h-5 text-purple-600" />
+                    <span>Scan & Pay with PhonePe / Any UPI App</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Account Name:</span>
-                    <span className="font-semibold text-gray-800">{settings.upi_account_name}</span>
+                  <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    Instant ₹0 Fee
+                  </span>
+                </div>
+
+                {/* QR Code Container */}
+                <div className="flex flex-col sm:flex-row items-center gap-5 bg-white p-4 rounded-xl border border-purple-100 shadow-xs">
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="p-2 bg-white rounded-2xl border-2 border-purple-200 shadow-md">
+                      <img
+                        src="/images/phonepe-qr.jpg"
+                        alt="PhonePe UPI QR - PALETI ANITHA"
+                        className="w-44 h-auto rounded-lg object-contain"
+                      />
+                    </div>
+                    <span className="text-[10px] text-purple-700 font-bold mt-1.5 flex items-center gap-1">
+                      <span>⚡</span> Verified PhonePe Merchant QR
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 flex-1 w-full text-xs">
+                    <div className="bg-purple-50/70 p-3 rounded-xl border border-purple-100 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-500 text-[11px]">Payee Name:</span>
+                        <strong className="text-gray-900 font-extrabold text-sm">{settings.upi_account_name || 'PALETI ANITHA'}</strong>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-500 text-[11px]">Amount to Pay:</span>
+                        <strong className="text-[#14532D] font-black text-base">₹{totalAmount}</strong>
+                      </div>
+                      <div className="flex justify-between items-center pt-1 border-t border-purple-100">
+                        <span className="text-gray-500 text-[11px]">UPI ID / VPA:</span>
+                        <span className="text-purple-900 font-mono font-bold select-all bg-white px-2 py-0.5 rounded border border-purple-200">
+                          {settings.upi_id || 'freshbasket@upi'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <a
+                      href={`upi://pay?pa=${encodeURIComponent(settings.upi_id || 'freshbasket@upi')}&pn=${encodeURIComponent(settings.upi_account_name || 'PALETI ANITHA')}&am=${totalAmount}&cu=INR`}
+                      className="flex items-center justify-center gap-2 w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                    >
+                      <span>Tap to Open PhonePe / UPI App</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </a>
+
+                    <p className="text-[11px] text-gray-500 leading-relaxed italic">
+                      You can pay right now using the QR code, OR scan the QR card at the time of doorstep delivery.
+                    </p>
                   </div>
                 </div>
-                <p className="text-[11px] text-gray-600 leading-relaxed">
-                  You can transfer ₹{totalAmount} now or scan the delivery executive&apos;s UPI QR card at your doorstep!
-                </p>
+
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                    UPI Transaction ID / UTR Reference (If paid in advance):
+                    UPI Transaction ID / UTR Number (Optional if paying now):
                   </label>
                   <input
                     type="text"
                     value={form.upi_reference}
                     onChange={(e) => setForm({ ...form, upi_reference: e.target.value })}
-                    placeholder="e.g. 428901234567"
-                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#218838]"
+                    placeholder="e.g. 428901234567 or leave blank to pay on delivery"
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-purple-600"
                   />
                 </div>
               </div>

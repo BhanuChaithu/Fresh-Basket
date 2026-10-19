@@ -53,7 +53,10 @@ export default function Navbar() {
 
           <div className="flex items-center gap-4">
             <span className="hidden md:inline-flex items-center gap-1 text-emerald-100">
-              <Sparkles className="w-3.5 h-3.5 text-[#FFC928]" /> Free Delivery over ₹{settings.free_delivery_threshold}
+              <Sparkles className="w-3.5 h-3.5 text-[#FFC928]" />{' '}
+              {settings.free_delivery_threshold === 0
+                ? 'FREE Delivery Across Bengaluru!'
+                : `Free Delivery over ₹${settings.free_delivery_threshold}`}
             </span>
             <a
               href={whatsappUrl}

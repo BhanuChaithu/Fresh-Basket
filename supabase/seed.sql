@@ -32,29 +32,29 @@ INSERT INTO public.business_settings (
     'Karnataka',
     'Pre-order cutoff: 09:00 PM for morning delivery (07:00 AM - 10:00 AM). 12:00 PM for evening delivery (04:00 PM - 07:00 PM).',
     'freshbasket@upi',
-    'Fresh Basket Bengaluru',
-    299.00,
-    35.00,
+    'PALETI ANITHA',
+    0.00,
+    0.00,
     199.00,
     true,
     true
 )
 ON CONFLICT (id) DO NOTHING;
 
--- Insert Serviceable Bengaluru Delivery Areas
+-- Insert Serviceable Bengaluru Delivery Areas (All Free Delivery ₹0)
 INSERT INTO public.delivery_areas (id, pincode, area_name, is_active, min_order_value, delivery_charge)
 VALUES
-('area-1', '560001', 'Bengaluru GPO / MG Road / Brigade Road', true, 199.00, 35.00),
-('area-2', '560034', 'Koramangala (Blocks 1-8) / ST Bed', true, 199.00, 30.00),
-('area-3', '560038', 'Indiranagar / Defence Colony / HAL 2nd Stage', true, 199.00, 30.00),
-('area-4', '560102', 'HSR Layout (Sectors 1 to 7)', true, 199.00, 25.00),
-('area-5', '560068', 'Madivala / Bommanahalli / Rupena Agrahara', true, 199.00, 30.00),
-('area-6', '560076', 'BTM Layout 2nd Stage / Bannerghatta Rd', true, 199.00, 30.00),
-('area-7', '560041', 'Jayanagar (4th, 7th, 9th Block)', true, 199.00, 30.00),
-('area-8', '560078', 'JP Nagar (Phases 1 to 6)', true, 199.00, 35.00),
-('area-9', '560103', 'Bellandur / EcoSpace / Outer Ring Rd', true, 249.00, 35.00),
-('area-10', '560066', 'Whitefield / ITPL / Kadugodi', true, 299.00, 40.00),
-('area-11', '560035', 'Sarjapur Road / Doddakannelli', true, 249.00, 35.00)
+('area-1', '560001', 'Bengaluru GPO / MG Road / Brigade Road', true, 199.00, 0.00),
+('area-2', '560034', 'Koramangala (Blocks 1-8) / ST Bed', true, 199.00, 0.00),
+('area-3', '560038', 'Indiranagar / Defence Colony / HAL 2nd Stage', true, 199.00, 0.00),
+('area-4', '560102', 'HSR Layout (Sectors 1 to 7)', true, 199.00, 0.00),
+('area-5', '560068', 'Madivala / Bommanahalli / Rupena Agrahara', true, 199.00, 0.00),
+('area-6', '560076', 'BTM Layout 2nd Stage / Bannerghatta Rd', true, 199.00, 0.00),
+('area-7', '560041', 'Jayanagar (4th, 7th, 9th Block)', true, 199.00, 0.00),
+('area-8', '560078', 'JP Nagar (Phases 1 to 6)', true, 199.00, 0.00),
+('area-9', '560103', 'Bellandur / EcoSpace / Outer Ring Rd', true, 249.00, 0.00),
+('area-10', '560066', 'Whitefield / ITPL / Kadugodi', true, 299.00, 0.00),
+('area-11', '560035', 'Sarjapur Road / Doddakannelli', true, 249.00, 0.00)
 ON CONFLICT (id) DO NOTHING;
 
 -- Insert Sample Products (Marked as is_sample_data = true per prompt specifications)

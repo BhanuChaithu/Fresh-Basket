@@ -77,7 +77,7 @@ export default function AdminSettingsPage() {
           pincode: newPin.trim(),
           area_name: newAreaName.trim(),
           min_order_value: parseFloat(newMinOrder) || 199,
-          delivery_charge: parseFloat(newDeliveryFee) || 30,
+          delivery_charge: parseFloat(newDeliveryFee) || 0,
           is_active: true,
         }),
       });

@@ -24,14 +24,14 @@ export default function CartDrawer() {
 
   if (!isCartOpen) return null;
 
-  const freeDeliveryThreshold = settings.free_delivery_threshold || 299;
-  const isFreeDelivery = subtotal >= freeDeliveryThreshold;
+  const freeDeliveryThreshold = settings.free_delivery_threshold ?? 0;
+  const isFreeDelivery = freeDeliveryThreshold === 0 || subtotal >= freeDeliveryThreshold;
   const remainingForFreeDelivery = Math.max(0, freeDeliveryThreshold - subtotal);
-  const progressPercent = Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100));
+  const progressPercent = freeDeliveryThreshold === 0 ? 100 : Math.min(100, Math.round((subtotal / freeDeliveryThreshold) * 100));
 
   const standardDeliveryCharge = selectedArea
-    ? selectedArea.delivery_charge
-    : settings.standard_delivery_charge || 35;
+    ? (selectedArea.delivery_charge ?? 0)
+    : (settings.standard_delivery_charge ?? 0);
   const deliveryCharge = isFreeDelivery ? 0 : standardDeliveryCharge;
   const estimatedTotal = subtotal + deliveryCharge;
 

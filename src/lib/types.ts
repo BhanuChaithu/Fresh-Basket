@@ -110,5 +110,6 @@ export interface BusinessSettings {
   minimum_order_value: number;
   cod_enabled: boolean;
   manual_upi_enabled: boolean;
+  upi_qr_image?: string;
   delivery_slots: string[];
 }

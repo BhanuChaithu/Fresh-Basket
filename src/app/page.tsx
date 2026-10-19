@@ -421,9 +421,13 @@ export default async function HomePage() {
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#218838] flex items-center justify-center mb-3">
                   <Sparkles className="w-4 h-4" />
                 </div>
-                <h5 className="font-bold text-sm text-gray-900">Free Delivery Threshold</h5>
+                <h5 className="font-bold text-sm text-gray-900">
+                  {settings.free_delivery_threshold === 0 ? '100% Free Delivery' : 'Free Delivery Threshold'}
+                </h5>
                 <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                  Free delivery across all active Bengaluru PINs on all orders above ₹{settings.free_delivery_threshold}.
+                  {settings.free_delivery_threshold === 0
+                    ? 'Free delivery (₹0 delivery charge) across all active Bengaluru delivery PIN codes!'
+                    : `Free delivery across all active Bengaluru PINs on all orders above ₹${settings.free_delivery_threshold}.`}
                 </p>
               </div>
 
