@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import { getDashboardStats } from '@/lib/store';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminDashboardPage() {
   const stats = await getDashboardStats();
 

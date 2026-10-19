@@ -470,16 +470,33 @@ export async function updateSettings(
 
 export async function getOrders(statusFilter?: string): Promise<Order[]> {
   if (isSupabaseConfigured && supabaseAdmin) {
-    let query = supabaseAdmin.from('orders').select('*');
-    if (statusFilter && statusFilter !== 'All') {
-      query = query.eq('status', statusFilter);
+    try {
+      let query = supabaseAdmin.from('orders').select('*, order_items(*)');
+      if (statusFilter && statusFilter !== 'All') {
+        query = query.eq('status', statusFilter);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (!error && data) {
+        return data.map((o: any) => ({
+          ...o,
+          items:
+            Array.isArray(o.order_items) && o.order_items.length > 0
+              ? o.order_items
+              : Array.isArray(o.items)
+              ? o.items
+              : [],
+        }));
+      }
+      if (error) {
+        console.error('Supabase getOrders error:', error);
+      }
+    } catch (err) {
+      console.error('Supabase getOrders exception:', err);
     }
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (!error && data) return data;
   }
 
-  const db = loadLocalDb();
-  let list = [...db.orders];
+  const db = loadLocalDb(true);
+  let list = [...(db.orders || [])];
   if (statusFilter && statusFilter !== 'All') {
     list = list.filter((o) => o.status === statusFilter);
   }
@@ -490,15 +507,29 @@ export async function getOrders(statusFilter?: string): Promise<Order[]> {
 
 export async function getOrderById(id: string): Promise<Order | null> {
   if (isSupabaseConfigured && supabaseAdmin) {
-    const { data, error } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (!error && data) return data;
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('orders')
+        .select('*, order_items(*)')
+        .eq('id', id)
+        .maybeSingle();
+      if (!error && data) {
+        return {
+          ...data,
+          items:
+            Array.isArray(data.order_items) && data.order_items.length > 0
+              ? data.order_items
+              : Array.isArray(data.items)
+              ? data.items
+              : [],
+        };
+      }
+    } catch (e) {
+      console.error('Supabase getOrderById error:', e);
+    }
   }
 
-  const db = loadLocalDb();
+  const db = loadLocalDb(true);
   return db.orders.find((o) => o.id === id) || null;
 }
 
@@ -507,13 +538,27 @@ export async function getOrderByLookupToken(token: string): Promise<Order | null
   if (!cleanToken) return null;
 
   if (isSupabaseConfigured && supabaseAdmin) {
-    const { data } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .or(`lookup_token.eq.${cleanToken},order_number.eq.${cleanToken},id.eq.${cleanToken}`)
-      .limit(1)
-      .maybeSingle();
-    if (data) return data;
+    try {
+      const { data } = await supabaseAdmin
+        .from('orders')
+        .select('*, order_items(*)')
+        .or(`lookup_token.eq.${cleanToken},order_number.eq.${cleanToken},id.eq.${cleanToken}`)
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        return {
+          ...data,
+          items:
+            Array.isArray(data.order_items) && data.order_items.length > 0
+              ? data.order_items
+              : Array.isArray(data.items)
+              ? data.items
+              : [],
+        };
+      }
+    } catch (e) {
+      console.error('Supabase getOrderByLookupToken error:', e);
+    }
   }
 
   // Reload fresh from disk
@@ -677,7 +722,31 @@ export async function createOrder(payload: {
   saveLocalDb(db);
 
   if (isSupabaseConfigured && supabaseAdmin) {
-    await supabaseAdmin.from('orders').insert([newOrder]);
+    try {
+      const { items: _items, ...orderRow } = newOrder;
+      const { error: orderError } = await supabaseAdmin.from('orders').insert([orderRow]);
+      if (orderError) {
+        console.error('Supabase order insert error:', orderError);
+      }
+
+      if (snapshottedItems.length > 0) {
+        const itemsToInsert = snapshottedItems.map((item) => ({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          unit: item.unit,
+          unit_price: item.unit_price,
+          quantity: item.quantity,
+          total_price: item.total_price,
+        }));
+        const { error: itemsError } = await supabaseAdmin.from('order_items').insert(itemsToInsert);
+        if (itemsError) {
+          console.error('Supabase order_items insert error:', itemsError);
+        }
+      }
+    } catch (sbErr) {
+      console.error('Supabase createOrder error:', sbErr);
+    }
   }
 
   return { order: newOrder };
@@ -752,15 +821,16 @@ export async function getDashboardStats(): Promise<{
   activeProducts: number;
   recentOrders: Order[];
 }> {
-  const db = loadLocalDb();
-  const orders = db.orders;
-  const products = db.products;
+  const [orders, products] = await Promise.all([
+    getOrders(),
+    getProducts({ includeUnavailable: true }),
+  ]);
 
   const totalOrders = orders.length;
   const pendingOrders = orders.filter((o) => o.status === 'Pending confirmation').length;
   const totalRevenue = orders
     .filter((o) => o.status !== 'Cancelled')
-    .reduce((sum, o) => sum + o.total_amount, 0);
+    .reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
   const totalProducts = products.length;
   const activeProducts = products.filter((p) => p.is_available).length;
   const recentOrders = orders.slice(0, 5);

@@ -368,10 +368,10 @@ export default function AdminOrdersPage() {
               {/* Snapshotted Items list */}
               <div className="space-y-2 text-xs">
                 <h4 className="font-bold text-gray-900 uppercase text-[10px] tracking-wider text-gray-400">
-                  Snapshotted Order Items ({selectedOrder.items.length})
+                  Snapshotted Order Items ({(selectedOrder.items || []).length})
                 </h4>
                 <div className="divide-y divide-gray-100 border border-gray-200 rounded-2xl p-2 bg-gray-50/50">
-                  {selectedOrder.items.map((item, idx) => (
+                  {(selectedOrder.items || []).map((item, idx) => (
                     <div key={idx} className="p-2 flex items-center justify-between">
                       <div>
                         <span className="font-bold text-gray-900">{item.product_name}</span>
